@@ -1,0 +1,9 @@
+{
+  "cnn_val_acc": 0.5119228202172198,
+  "xgb_val_acc": 0.516412839026758,
+  "xgb_test_acc": 0.5055731338990364,
+  "n_train": 105225,
+  "n_val": 16481,
+  "n_test": 27812,
+  "sentiment": false
+}
