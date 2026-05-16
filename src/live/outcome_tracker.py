@@ -40,50 +40,40 @@ def load_trades() -> pd.DataFrame:
         return pd.DataFrame()
 
     df = pd.read_csv(TRADES_LOG, parse_dates=["timestamp"])
+    df["outcome"]    = df["outcome"].astype(object)
+    df["exit_price"] = df["exit_price"].astype(object) if "exit_price" in df.columns else None
     print(f"Loaded {len(df)} trades — {df['outcome'].isna().sum()} pending outcomes")
     return df
 
 
-def get_price_at(feed: AlpacaFeed, symbol: str, target_time: datetime) -> float | None:
+def get_price_at(feed, symbol: str, target_time: datetime) -> float | None:
     """
-    Fetch the closing price of a bar at or just after target_time.
+    Fetch the closing price at or just after target_time using yfinance.
     """
-    from alpaca.data.requests import StockBarsRequest
-    from alpaca.data.timeframe import TimeFrame
-    from alpaca.data.historical import StockHistoricalDataClient
-    import os
-
-    client = StockHistoricalDataClient(
-        api_key    = os.getenv("APCA_API_KEY_ID"),
-        secret_key = os.getenv("APCA_API_SECRET_KEY"),
-    )
-
-    # Fetch a small window around the target time
-    start = target_time - timedelta(minutes=2)
-    end   = target_time + timedelta(minutes=2)
-
-    request = StockBarsRequest(
-        symbol_or_symbols = symbol,
-        timeframe         = TimeFrame.Minute,
-        start             = start.astimezone(),
-        end               = end.astimezone(),
-    )
+    import yfinance as yf
 
     try:
-        bars = client.get_stock_bars(request).df
+        ticker = yf.Ticker(symbol)
+        bars   = ticker.history(period="5d", interval="1m")
+
         if bars.empty:
             return None
 
-        if isinstance(bars.index, pd.MultiIndex):
-            bars = bars.xs(symbol, level="symbol")
-
         bars = bars.reset_index()
-        bars["timestamp"] = pd.to_datetime(bars["timestamp"]).dt.tz_convert(ET)
+        bars["Datetime"] = pd.to_datetime(bars["Datetime"])
 
-        # Find the bar closest to target time
-        bars["diff"] = (bars["timestamp"] - target_time).abs()
+        # Convert to naive ET
+        if bars["Datetime"].dt.tz is not None:
+            from zoneinfo import ZoneInfo
+            bars["Datetime"] = bars["Datetime"].dt.tz_convert(
+                ZoneInfo("America/New_York")
+            ).dt.tz_localize(None)
+
+        # Find bar closest to target time
+        target_naive = pd.Timestamp(target_time).tz_localize(None)
+        bars["diff"] = (bars["Datetime"] - target_naive).abs()
         closest = bars.loc[bars["diff"].idxmin()]
-        return float(closest["close"])
+        return float(closest["Close"])
 
     except Exception as e:
         print(f"  [Error fetching price] {e}")

@@ -26,7 +26,7 @@ import torch.nn as nn
 class CNN(nn.Module):
     def __init__(
         self,
-        n_features : int = 13,
+        n_features : int = 21,
         n_classes  : int = 2,
         dropout    : float = 0.5,
     ):
@@ -105,7 +105,7 @@ if __name__ == "__main__":
     print(f"Trainable parameters: {trainable:,}")
 
     # Forward pass with dummy data
-    batch = torch.randn(32, 13, 30)   # batch of 32 samples
+    batch = torch.randn(32, 21, 60)   # batch of 32 samples
     out   = model(batch)
     emb   = model.extract_features(batch)
 
